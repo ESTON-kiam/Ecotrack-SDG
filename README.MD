@@ -311,13 +311,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Chart.js** - For beautiful data visualizations
 - **Font Awesome** - For the comprehensive icon library
 
-## 📞 Support
 
-- 📧 **Email**: support@ecotrack.app
-- 🐛 **Issues**: [GitHub Issues](https://github.com/yourusername/ecotrack/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/yourusername/ecotrack/discussions)
-
----
 
 **Made with 💚 for a sustainable future**
 
