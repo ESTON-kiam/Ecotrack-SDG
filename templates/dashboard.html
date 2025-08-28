@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h2 class="mb-3">
+                            <i class="fas fa-user-circle text-success"></i> 
+                            Welcome back, {{ user.username }}!
+                        </h2>
+                        <p class="text-muted mb-0">
+                            Member since {{ user.joined_date.strftime('%B %Y') }} • 
+                            Making the world greener one action at a time
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <a href="{{ url_for('log_action') }}" class="btn btn-eco btn-lg">
+                            <i class="fas fa-plus-circle"></i> Log New Action
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center text-white">
+                <i class="fas fa-star fa-3x mb-3"></i>
+                <h3 class="fw-bold">{{ total_points }}</h3>
+                <p class="mb-0">Total Points</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center text-white">
+                <i class="fas fa-leaf fa-3x mb-3"></i>
+                <h3 class="fw-bold">{{ total_actions_count }}</h3>
+                <p class="mb-0">Actions Completed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center text-white">
+                <i class="fas fa-medal fa-3x mb-3"></i>
+                <h3 class="fw-bold">{{ earned_badges|length }}</h3>
+                <p class="mb-0">Badges Earned</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if earned_badges %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-trophy"></i> Your Achievements
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap">
+                    {% for badge_id in earned_badges %}
+                        <span class="badge-eco">
+                            <i class="fas fa-award"></i> {{ badges[badge_id].name }}
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mb-4">
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie"></i> Actions by Category
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="categoryChart" width="400" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line"></i> Monthly Activity
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="monthlyChart" width="400" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-history"></i> Recent Actions
+                </h5>
+                <span class="badge bg-light text-dark">{{ total_actions_count }} total</span>
+            </div>
+            <div class="card-body">
+                {% if user_actions %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Description</th>
+                                    <th>Points</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for action in user_actions[:10] %}
+                                <tr>
+                                    <td>
+                                        <i class="fas fa-leaf text-success me-2"></i>
+                                        {{ action.action_name }}
+                                    </td>
+                                    <td>{{ action.description or 'No description provided' }}</td>
+                                    <td>
+                                        <span class="badge bg-success">+{{ action.points }}</span>
+                                    </td>
+                                    <td>{{ action.timestamp.strftime('%m/%d/%Y %H:%M') }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if total_actions_count > 10 %}
+                        <div class="text-center mt-3">
+                            <small class="text-muted">Showing 10 most recent actions out of {{ total_actions_count }} total</small>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-seedling fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No actions logged yet</h5>
+                        <p class="text-muted">Start your sustainability journey by logging your first action!</p>
+                        <a href="{{ url_for('log_action') }}" class="btn btn-eco">
+                            <i class="fas fa-plus"></i> Log Your First Action
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-bullseye"></i> Next Milestones
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% set next_badge = None %}
+                    {% set min_requirement = 999999 %}
+                    {% for badge_id, badge_info in badges.items() %}
+                        {% if badge_id not in earned_badges and badge_info.requirement > total_points and badge_info.requirement < min_requirement %}
+                            {% set next_badge = badge_info %}
+                            {% set min_requirement = badge_info.requirement %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if next_badge %}
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-target fa-2x text-warning me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Next Badge: {{ next_badge.name }}</h6>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-warning" 
+                                         style="width: {{ (total_points / next_badge.requirement * 100)|round(1) }}%">
+                                    </div>
+                                </div>
+                                <small class="text-muted">
+                                    {{ total_points }} / {{ next_badge.requirement }} points 
+                                    ({{ next_badge.requirement - total_points }} more needed)
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="col-md-6">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-chart-line fa-2x text-info me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Weekly Goal</h6>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-info" style="width: 75%"></div>
+                                </div>
+                                <small class="text-muted">3 of 4 actions completed this week</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Fetch dashboard data and create charts
+fetch('/api/dashboard_data')
+    .then(response => response.json())
+    .then(data => {
+        // Category Chart
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        const categoryLabels = Object.keys(data.category_stats);
+        const categoryData = Object.values(data.category_stats);
+        
+        if (categoryLabels.length > 0) {
+            new Chart(categoryCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: categoryLabels,
+                    datasets: [{
+                        data: categoryData,
+                        backgroundColor: [
+                            '#28a745', '#17a2b8', '#ffc107', '#dc3545', '#6f42c1', '#fd7e14'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        } else {
+            categoryCtx.canvas.parentNode.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-chart-pie fa-3x mb-3"></i><br>No data to display</div>';
+        }
+        
+        // Monthly Chart
+        const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+        const monthlyLabels = Object.keys(data.monthly_stats).sort();
+        const monthlyData = monthlyLabels.map(month => data.monthly_stats[month]);
+        
+        if (monthlyLabels.length > 0) {
+            new Chart(monthlyCtx, {
+                type: 'line',
+                data: {
+                    labels: monthlyLabels.map(month => {
+                        const [year, monthNum] = month.split('-');
+                        const date = new Date(year, monthNum - 1);
+                        return date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                    }),
+                    datasets: [{
+                        label: 'Actions per Month',
+                        data: monthlyData,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            monthlyCtx.canvas.parentNode.innerHTML = '<div class="text-center text-muted py-5"><i class="fas fa-chart-line fa-3x mb-3"></i><br>No monthly data to display</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching dashboard data:', error);
+    });
+</script>
+{% endblock %}

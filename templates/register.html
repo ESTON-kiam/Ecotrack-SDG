@@ -1,0 +1,94 @@
+<!-- templates/register.html -->
+{% extends "base.html" %}
+
+{% block title %}Register - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card">
+            <div class="card-header bg-primary text-white text-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-plus"></i> Join EcoTrack
+                </h4>
+                <small>Start your sustainability journey today</small>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">
+                            <i class="fas fa-user text-muted"></i> Username
+                        </label>
+                        <input type="text" class="form-control" id="username" name="username"
+                               placeholder="Choose a unique username" required>
+                        <div class="form-text">This will be displayed on the leaderboard</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="email" class="form-label">
+                            <i class="fas fa-envelope text-muted"></i> Email Address
+                        </label>
+                        <input type="email" class="form-control" id="email" name="email"
+                               placeholder="your@email.com" required>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="password" class="form-label">
+                            <i class="fas fa-lock text-muted"></i> Password
+                        </label>
+                        <input type="password" class="form-control" id="password" name="password"
+                               placeholder="Create a strong password" required>
+                        <div class="form-text">Choose a secure password with at least 6 characters</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="terms" required>
+                            <label class="form-check-label text-muted" for="terms">
+                                I agree to contribute to a more sustainable future and track my eco-friendly actions
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-eco btn-lg">
+                            <i class="fas fa-rocket"></i> Create My Account
+                        </button>
+                    </div>
+                </form>
+
+                <hr class="my-4">
+
+                <div class="text-center">
+                    <p class="text-muted">Already have an account?</p>
+                    <a href="{{ url_for('login') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-body text-center">
+                <h6 class="text-success mb-3">
+                    <i class="fas fa-leaf"></i> Why Join EcoTrack?
+                </h6>
+                <div class="row text-sm">
+                    <div class="col-4">
+                        <i class="fas fa-chart-line text-info"></i>
+                        <br><small>Track Impact</small>
+                    </div>
+                    <div class="col-4">
+                        <i class="fas fa-users text-warning"></i>
+                        <br><small>Join Community</small>
+                    </div>
+                    <div class="col-4">
+                        <i class="fas fa-trophy text-success"></i>
+                        <br><small>Earn Rewards</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

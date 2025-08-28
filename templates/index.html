@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section text-white text-center py-5 mb-5" style="background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2671&q=80'); background-size: cover; background-position: center; border-radius: 20px;">
+    <div class="container">
+        <h1 class="display-4 fw-bold mb-4">
+            <i class="fas fa-leaf text-success"></i> Welcome to EcoTrack
+        </h1>
+        <p class="lead mb-4">Track your sustainable actions and join a community working towards a greener future!</p>
+        <p class="mb-4">Aligned with UN Sustainable Development Goals 11, 12, and 13</p>
+        {% if not session.user_id %}
+        <div class="d-flex gap-3 justify-content-center">
+            <a href="{{ url_for('register') }}" class="btn btn-eco btn-lg">
+                <i class="fas fa-user-plus"></i> Join the Movement
+            </a>
+            <a href="{{ url_for('login') }}" class="btn btn-outline-light btn-lg">
+                <i class="fas fa-sign-in-alt"></i> Login
+            </a>
+        </div>
+        {% else %}
+        <a href="{{ url_for('log_action') }}" class="btn btn-eco btn-lg">
+            <i class="fas fa-plus-circle"></i> Log Your First Action
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mb-5">
+    <div class="col-md-4 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-3x mb-3"></i>
+                <h3 class="fw-bold">{{ total_users }}</h3>
+                <p class="card-text">Community Members</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-leaf fa-3x mb-3"></i>
+                <h3 class="fw-bold">{{ total_actions }}</h3>
+                <p class="card-text">Sustainable Actions</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card stats-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-star fa-3x mb-3"></i>
+                <h3 class="fw-bold">{{ total_points }}</h3>
+                <p class="card-text">Impact Points</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-bullseye"></i> Our Mission & SDG Alignment</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <i class="fas fa-city fa-2x text-primary mb-2"></i>
+                            <h6>SDG 11</h6>
+                            <small>Sustainable Cities and Communities</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <i class="fas fa-recycle fa-2x text-success mb-2"></i>
+                            <h6>SDG 12</h6>
+                            <small>Responsible Consumption</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="p-3 bg-light rounded">
+                            <i class="fas fa-globe fa-2x text-info mb-2"></i>
+                            <h6>SDG 13</h6>
+                            <small>Climate Action</small>
+                        </div>
+                    </div>
+                </div>
+                <p class="mt-3 text-muted">
+                    EcoTrack empowers individuals to make a difference by tracking sustainable actions,
+                    building communities around environmental responsibility, and promoting climate-conscious behavior.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-clock"></i> Recent Community Activity</h5>
+            </div>
+            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                {% if recent_activities %}
+                    {% for activity in recent_activities %}
+                    <div class="activity-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ activity.username }}</strong>
+                                <br>
+                                <small class="text-muted">{{ activity.action_name }}</small>
+                            </div>
+                            <span class="badge bg-success">+{{ activity.points }} pts</span>
+                        </div>
+                        <small class="text-muted">{{ activity.timestamp.strftime('%m/%d/%Y %H:%M') }}</small>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center">No recent activities. Be the first to log an action!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-lightbulb"></i> How It Works</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="mb-3">
+                            <i class="fas fa-user-plus fa-3x text-primary"></i>
+                        </div>
+                        <h6>1. Sign Up</h6>
+                        <p class="small text-muted">Create your EcoTrack account and join our community</p>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="mb-3">
+                            <i class="fas fa-tasks fa-3x text-success"></i>
+                        </div>
+                        <h6>2. Log Actions</h6>
+                        <p class="small text-muted">Record your sustainable activities and earn points</p>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="mb-3">
+                            <i class="fas fa-trophy fa-3x text-warning"></i>
+                        </div>
+                        <h6>3. Earn Badges</h6>
+                        <p class="small text-muted">Unlock achievements and climb the leaderboard</p>
+                    </div>
+                    <div class="col-md-3 text-center mb-3">
+                        <div class="mb-3">
+                            <i class="fas fa-users fa-3x text-info"></i>
+                        </div>
+                        <h6>4. Inspire Others</h6>
+                        <p class="small text-muted">Be part of a movement creating positive change</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="text-center mt-5">
+    {% if not session.user_id %}
+    <h3 class="text-white mb-3">Ready to Make a Difference?</h3>
+    <a href="{{ url_for('register') }}" class="btn btn-eco btn-lg me-3">
+        <i class="fas fa-rocket"></i> Get Started Now
+    </a>
+    <a href="{{ url_for('leaderboard') }}" class="btn btn-outline-light btn-lg">
+        <i class="fas fa-eye"></i> View Leaderboard
+    </a>
+    {% endif %}
+</div>
+{% endblock %}

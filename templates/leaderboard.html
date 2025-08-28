@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Leaderboard - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 text-center">
+        <h2 class="text-white mb-3">
+            <i class="fas fa-trophy text-warning"></i> Community Leaderboard
+        </h2>
+        <p class="text-white-50">
+            Celebrating our sustainability champions making a difference!
+        </p>
+    </div>
+</div>
+
+{% if top_users %}
+<div class="row mb-4">
+    <!-- Top 3 Podium -->
+    {% for user in top_users[:3] %}
+    <div class="col-md-4 mb-3">
+        <div class="card h-100 {{ 'border-warning' if loop.index == 1 else ('border-secondary' if loop.index == 2 else 'border-warning') }}" 
+             style="border-width: 3px;">
+            <div class="card-body text-center">
+                <div class="position-relative mb-3">
+                    {% if loop.index == 1 %}
+                        <i class="fas fa-crown fa-3x text-warning mb-2"></i>
+                        <div class="rank-badge rank-1 mx-auto">1st</div>
+                    {% elif loop.index == 2 %}
+                        <i class="fas fa-medal fa-3x text-secondary mb-2"></i>
+                        <div class="rank-badge rank-2 mx-auto">2nd</div>
+                    {% else %}
+                        <i class="fas fa-award fa-3x mb-2" style="color: #cd7f32;"></i>
+                        <div class="rank-badge rank-3 mx-auto">3rd</div>
+                    {% endif %}
+                </div>
+                
+                <h5 class="fw-bold">{{ user.username }}</h5>
+                <h3 class="text-success mb-2">{{ user.total_points }}</h3>
+                <p class="text-muted mb-3">Impact Points</p>
+                
+                {% if user.badges %}
+                <div class="mb-3">
+                    {% for badge_id in user.badges[:3] %}
+                        <span class="badge bg-primary me-1" title="{{ badges[badge_id].description }}">
+                            <i class="fas fa-award"></i> {{ badges[badge_id].name }}
+                        </span>
+                    {% endfor %}
+                    {% if user.badges|length > 3 %}
+                        <small class="text-muted">+{{ user.badges|length - 3 }} more</small>
+                    {% endif %}
+                </div>
+                {% endif %}
+                
+                <small class="text-muted">
+                    Member since {{ user.joined_date.strftime('%B %Y') }}
+                </small>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Full Leaderboard -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-list-ol"></i> Full Rankings
+                </h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" width="80">Rank</th>
+                                <th>User</th>
+                                <th class="text-center">Points</th>
+                                <th class="text-center">Badges</th>
+                                <th class="text-center">Member Since</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in top_users %}
+                            <tr class="{{ 'table-warning' if loop.index <= 3 else '' }}">
+                                <td class="text-center align-middle">
+                                    <div class="rank-badge 
+                                        {{ 'rank-1' if loop.index == 1 else 
+                                           ('rank-2' if loop.index == 2 else 
+                                            ('rank-3' if loop.index == 3 else 'rank-other')) }}">
+                                        {{ loop.index }}
+                                    </div>
+                                </td>
+                                <td class="align-middle">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-user-circle fa-2x text-muted me-3"></i>
+                                        <div>
+                                            <h6 class="mb-0">{{ user.username }}</h6>
+                                            {% if loop.index <= 3 %}
+                                                <small class="text-muted">
+                                                    {% if loop.index == 1 %}🏆 Champion
+                                                    {% elif loop.index == 2 %}🥈 Runner-up
+                                                    {% else %}🥉 Third Place
+                                                    {% endif %}
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <span class="badge bg-success fs-6">{{ user.total_points }}</span>
+                                </td>
+                                <td class="text-center align-middle">
+                                    {% if user.badges %}
+                                        <span class="badge bg-warning text-dark">{{ user.badges|length }}</span>
+                                        <div class="mt-1">
+                                            {% for badge_id in user.badges[:2] %}
+                                                <span class="badge bg-primary me-1" style="font-size: 0.7em;">
+                                                    {{ badges[badge_id].name }}
+                                                </span>
+                                            {% endfor %}
+                                            {% if user.badges|length > 2 %}
+                                                <span class="badge bg-secondary" style="font-size: 0.7em;">
+                                                    +{{ user.badges|length - 2 }}
+                                                </span>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center align-middle">
+                                    <small class="text-muted">{{ user.joined_date.strftime('%b %Y') }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle"></i> How Rankings Work
+                </h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-star text-warning"></i>
+                        <strong>Points:</strong> Earned by logging sustainable actions
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-trophy text-success"></i>
+                        <strong>Badges:</strong> Unlocked at point milestones and action counts
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-users text-info"></i>
+                        <strong>Community:</strong> Rankings update in real-time
+                    </li>
+                    <li class="mb-0">
+                        <i class="fas fa-heart text-danger"></i>
+                        <strong>Impact:</strong> Every action helps achieve SDG goals
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-medal"></i> Badge System
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for badge_id, badge_info in badges.items() %}
+                        {% if loop.index <= 6 %}
+                        <div class="col-12 mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="badge bg-primary me-2">{{ badge_info.name }}</span>
+                                    <small class="text-muted">{{ badge_info.description }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="text-center mt-3">
+                    {% if not session.user_id %}
+                        <a href="{{ url_for('register') }}" class="btn btn-eco btn-sm">
+                            <i class="fas fa-rocket"></i> Join & Start Earning
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('log_action') }}" class="btn btn-eco btn-sm">
+                            <i class="fas fa-plus"></i> Log Action
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-users fa-4x text-muted mb-4"></i>
+                <h4 class="text-muted">No users yet!</h4>
+                <p class="text-muted mb-4">Be the first to join our sustainability community and start making an impact.</p>
+                {% if not session.user_id %}
+                    <a href="{{ url_for('register') }}" class="btn btn-eco btn-lg">
+                        <i class="fas fa-rocket"></i> Be the First Champion
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="text-center mt-4">
+    <small class="text-white-50">
+        <i class="fas fa-sync-alt"></i> Rankings are updated in real-time as users log new actions
+    </small>
+</div>
+{% endblock %}

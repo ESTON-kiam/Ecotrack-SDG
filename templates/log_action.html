@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+
+{% block title %}Log Action - EcoTrack{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-plus-circle"></i> Log Your Sustainable Action
+                </h4>
+                <small>Every action counts towards a better future!</small>
+            </div>
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-4">
+                        <label for="action_type" class="form-label">
+                            <i class="fas fa-leaf text-success"></i> Select Action Type
+                        </label>
+                        <select class="form-select" id="action_type" name="action_type" required>
+                            <option value="">Choose your sustainable action...</option>
+                            {% for action_id, action_info in sustainable_actions.items() %}
+                            <option value="{{ action_id }}" data-points="{{ action_info.points }}" data-category="{{ action_info.category }}">
+                                {{ action_info.name }} (+{{ action_info.points }} points)
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="description" class="form-label">
+                            <i class="fas fa-comment text-info"></i> Description (Optional)
+                        </label>
+                        <textarea class="form-control" id="description" name="description" rows="3" 
+                                  placeholder="Tell us more about your action... (e.g., 'Planted 3 oak trees in the community park')"></textarea>
+                        <div class="form-text">Share details to inspire others in your community!</div>
+                    </div>
+                    
+                    <div id="action-preview" class="alert alert-info d-none">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-info-circle fa-2x me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Action Preview</h6>
+                                <p class="mb-1" id="preview-text"></p>
+                                <small>
+                                    <span class="badge bg-success" id="preview-points"></span>
+                                    <span class="badge bg-secondary" id="preview-category"></span>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-eco btn-lg">
+                            <i class="fas fa-save"></i> Log This Action
+                        </button>
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-lightbulb"></i> Available Actions & Their Impact
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for category in ['Environmental', 'Transportation', 'Energy', 'Waste Management', 'Water', 'Consumption'] %}
+                    <div class="col-lg-6 mb-4">
+                        <h6 class="text-primary mb-3">
+                            {% if category == 'Environmental' %}
+                                <i class="fas fa-tree"></i> Environmental
+                            {% elif category == 'Transportation' %}
+                                <i class="fas fa-bus"></i> Transportation
+                            {% elif category == 'Energy' %}
+                                <i class="fas fa-bolt"></i> Energy
+                            {% elif category == 'Waste Management' %}
+                                <i class="fas fa-recycle"></i> Waste Management
+                            {% elif category == 'Water' %}
+                                <i class="fas fa-tint"></i> Water
+                            {% elif category == 'Consumption' %}
+                                <i class="fas fa-shopping-cart"></i> Consumption
+                            {% endif %}
+                            {{ category }}
+                        </h6>
+                        {% for action_id, action_info in sustainable_actions.items() %}
+                            {% if action_info.category == category %}
+                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded" 
+                                 style="background-color: rgba(40, 167, 69, 0.1);">
+                                <span>{{ action_info.name }}</span>
+                                <span class="badge bg-success">{{ action_info.points }} pts</span>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0">
+                    <i class="fas fa-question-circle"></i> Not Sure What to Log?
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-home text-success"></i> At Home</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success"></i> Switch to LED bulbs</li>
+                            <li><i class="fas fa-check text-success"></i> Start composting food scraps</li>
+                            <li><i class="fas fa-check text-success"></i> Use reusable bags and bottles</li>
+                            <li><i class="fas fa-check text-success"></i> Fix water leaks promptly</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-city text-info"></i> In Your Community</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success"></i> Take public transportation</li>
+                            <li><i class="fas fa-check text-success"></i> Participate in local cleanups</li>
+                            <li><i class="fas fa-check text-success"></i> Shop at farmers markets</li>
+                            <li><i class="fas fa-check text-success"></i> Plant trees or gardens</li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle"></i>
+                        Remember: Every small action contributes to achieving the UN Sustainable Development Goals!
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('action_type').addEventListener('change', function() {
+    const selectedOption = this.options[this.selectedIndex];
+    const preview = document.getElementById('action-preview');
+    
+    if (selectedOption.value) {
+        const actionName = selectedOption.text.split(' (+')[0];
+        const points = selectedOption.getAttribute('data-points');
+        const category = selectedOption.getAttribute('data-category');
+        
+        document.getElementById('preview-text').textContent = actionName;
+        document.getElementById('preview-points').textContent = `+${points} points`;
+        document.getElementById('preview-category').textContent = category;
+        
+        preview.classList.remove('d-none');
+    } else {
+        preview.classList.add('d-none');
+    }
+});
+
+// Auto-resize textarea
+document.getElementById('description').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
+});
+</script>
+{% endblock %}
