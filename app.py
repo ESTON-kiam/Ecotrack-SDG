@@ -6,107 +6,143 @@ from datetime import datetime, timedelta
 import os
 import ssl
 from functools import wraps
+import logging
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-app.secret_key = '861612ceadae2312be7a77fabead3a0d2b7a418cfc5c6a77ece99ec84fde1dbc'
+# Use environment variable for secret key in production
+app.secret_key = os.getenv('SECRET_KEY', '861612ceadae2312be7a77fabead3a0d2b7a418cfc5c6a77ece99ec84fde1dbc')
 
 
-# MongoDB Configuration - Multiple SSL fix methods
+# MongoDB Configuration - Improved connection handling
 def get_mongo_client():
-    """Try multiple connection methods in order of preference"""
-    import certifi
+    """Enhanced MongoDB connection with better error handling"""
 
-    print("Attempting to connect to MongoDB...")
+    logger.info("Attempting to connect to MongoDB...")
 
-    # Method 1: Try with certifi (most secure)
+    # Get MongoDB URI from environment variables with fallback
+    MONGO_URI = os.getenv('MONGO_URI') or os.getenv('DATABASE_URL')
+
+    # Fallback for local development (remove this in production)
+    if not MONGO_URI:
+        MONGO_URI = 'mongodb+srv://engestonbrandonkiama_db_user:7UzegmTeg3Eod3w6@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority'
+        logger.warning("Using fallback MongoDB URI - set MONGO_URI environment variable for production!")
+
+    if not MONGO_URI:
+        logger.error("MONGO_URI environment variable not set!")
+        return No
+
+    # Remove any trailing spaces and validate URI
+    MONGO_URI = MONGO_URI.strip()
+    logger.info(f"Using MongoDB URI: {MONGO_URI[:50]}...")  # Log partial URI for debugging
+
+    # Method 1: Standard connection with SSL verification
     try:
-        print("Trying Method 1: Using certifi certificates...")
-        MONGO_URI = os.getenv(
-            'MONGO_URI',
-            'mongodb+srv://engestonbrandonkiama_db_user:7UzegmTeg3Eod3w6@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority'
-        )
+        logger.info("Trying Method 1: Standard SSL connection...")
 
         client = MongoClient(
             MONGO_URI,
-            tlsCAFile=certifi.where(),  # Use certifi certificates
-            serverSelectionTimeoutMS=30000,
-            connectTimeoutMS=30000,
-            socketTimeoutMS=30000
+            serverSelectionTimeoutMS=10000,  # Reduced timeout
+            connectTimeoutMS=10000,
+            socketTimeoutMS=10000,
+            maxPoolSize=10,
+            retryWrites=True
         )
 
-        # Test connection
+        # Test connection with shorter timeout
         client.admin.command('ping')
-        print("Connected to MongoDB successfully with certifi!")
+        logger.info("Connected to MongoDB successfully with standard SSL!")
         return client
 
     except Exception as e:
-        print(f"Method 1 failed: {e}")
+        logger.error(f"Method 1 failed: {e}")
 
-    # Method 2: Try with SSL verification disabled (development)
+    # Method 2: Connection with certifi
     try:
-        print("Trying Method 2: Disabling SSL verification...")
-        MONGO_URI = os.getenv(
-            'MONGO_URI',
-            'mongodb+srv://engestonbrandonkiama_db_user:7UzegmTeg3Eod3w6@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority'
+        import certifi
+        logger.info("Trying Method 2: Using certifi certificates...")
+
+        client = MongoClient(
+            MONGO_URI,
+            tlsCAFile=certifi.where(),
+            serverSelectionTimeoutMS=10000,
+            connectTimeoutMS=10000,
+            socketTimeoutMS=10000,
+            maxPoolSize=10,
+            retryWrites=True
         )
+
+        client.admin.command('ping')
+        logger.info("Connected to MongoDB successfully with certifi!")
+        return client
+
+    except Exception as e:
+        logger.error(f"Method 2 failed: {e}")
+
+    # Method 3: Relaxed SSL settings (for development/testing only)
+    try:
+        logger.info("Trying Method 3: Relaxed SSL settings...")
 
         client = MongoClient(
             MONGO_URI,
             tls=True,
             tlsAllowInvalidCertificates=True,
             tlsAllowInvalidHostnames=True,
-            serverSelectionTimeoutMS=30000,
-            connectTimeoutMS=30000,
-            socketTimeoutMS=30000
+            serverSelectionTimeoutMS=10000,
+            connectTimeoutMS=10000,
+            socketTimeoutMS=10000,
+            maxPoolSize=10,
+            retryWrites=True
         )
 
-        # Test connection
         client.admin.command('ping')
-        print("Connected to MongoDB successfully (SSL verification disabled)!")
+        logger.warning("Connected to MongoDB with relaxed SSL settings (not recommended for production)!")
         return client
 
     except Exception as e:
-        print(f"Method 2 failed: {e}")
+        logger.error(f"Method 3 failed: {e}")
 
-    # Method 3: Try alternative URI format
-    try:
-        print("Trying Method 3: Alternative URI format...")
-        MONGO_URI = os.getenv(
-            'MONGO_URI',
-            'mongodb+srv://engestonbrandonkiama_db_user:7UzegmTeg3Eod3w6@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE'
-        )
-
-        client = MongoClient(
-            MONGO_URI,
-            serverSelectionTimeoutMS=30000,
-            connectTimeoutMS=30000,
-            socketTimeoutMS=30000
-        )
-
-        # Test connection
-        client.admin.command('ping')
-        print("Connected to MongoDB successfully with alternative URI!")
-        return client
-
-    except Exception as e:
-        print(f"Method 3 failed: {e}")
-
-    print("All MongoDB connection methods failed!")
+    logger.error("All MongoDB connection methods failed!")
     return None
 
 
-# Initialize MongoDB - THIS WAS MISSING!
-client = get_mongo_client()
-if client:
-    db = client.ecotrack
-    users = db.users
-    actions = db.actions
-else:
-    print("Failed to connect to MongoDB - app may not work properly")
-    db = None
-    users = None
-    actions = None
+# Initialize MongoDB connection
+client = None
+db = None
+users = None
+actions = None
+
+
+def init_db():
+    """Initialize database connection"""
+    global client, db, users, actions
+
+    client = get_mongo_client()
+    if client:
+        try:
+            db = client.ecotrack
+            users = db.users
+            actions = db.actions
+            logger.info("Database collections initialized successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error initializing database collections: {e}")
+            return False
+    else:
+        logger.error("Failed to connect to MongoDB - app may not work properly")
+        return False
+
+
+# Initialize database on startup
+db_available = init_db()
 
 # Sustainable Actions with Points
 SUSTAINABLE_ACTIONS = {
@@ -141,9 +177,11 @@ def db_required(f):
 
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if db is None:
-            flash('Database connection unavailable. Please try again later.', 'error')
-            return render_template('error.html', message='Database connection unavailable'), 500
+        if not db_available or db is None:
+            # Try to reconnect
+            if not init_db():
+                flash('Database connection unavailable. Please try again later.', 'error')
+                return render_template('error.html', message='Database connection unavailable'), 500
         return f(*args, **kwargs)
 
     return decorated_function
@@ -185,14 +223,14 @@ def get_user_badges(user_id):
 
         return earned_badges
     except Exception as e:
-        print(f"Error getting user badges: {e}")
+        logger.error(f"Error getting user badges: {e}")
         return []
 
 
 @app.route('/')
 def index():
     # Check if database is available
-    if db is None:
+    if not db_available or db is None:
         return render_template('index.html',
                                total_users=0,
                                total_actions=0,
@@ -219,7 +257,7 @@ def index():
                                total_points=total_points,
                                recent_activities=recent_activities)
     except Exception as e:
-        print(f"Error in index route: {e}")
+        logger.error(f"Error in index route: {e}")
         return render_template('index.html',
                                total_users=0,
                                total_actions=0,
@@ -259,7 +297,7 @@ def register():
             flash('Registration successful! Please log in.', 'success')
             return redirect(url_for('login'))
         except Exception as e:
-            print(f"Error in register route: {e}")
+            logger.error(f"Error in register route: {e}")
             flash('Registration failed. Please try again.', 'error')
 
     return render_template('register.html')
@@ -283,7 +321,7 @@ def login():
             else:
                 flash('Invalid email or password!', 'error')
         except Exception as e:
-            print(f"Error in login route: {e}")
+            logger.error(f"Error in login route: {e}")
             flash('Login failed. Please try again.', 'error')
 
     return render_template('login.html')
@@ -327,7 +365,7 @@ def dashboard():
                                earned_badges=earned_badges,
                                badges=BADGES)
     except Exception as e:
-        print(f"Error in dashboard route: {e}")
+        logger.error(f"Error in dashboard route: {e}")
         flash('Error loading dashboard. Please try again.', 'error')
         return redirect(url_for('index'))
 
@@ -358,7 +396,7 @@ def log_action():
             else:
                 flash('Invalid action type!', 'error')
         except Exception as e:
-            print(f"Error in log_action route: {e}")
+            logger.error(f"Error in log_action route: {e}")
             flash('Error logging action. Please try again.', 'error')
 
     return render_template('log_action.html', sustainable_actions=SUSTAINABLE_ACTIONS)
@@ -384,7 +422,7 @@ def leaderboard():
 
         return render_template('leaderboard.html', top_users=top_users, badges=BADGES)
     except Exception as e:
-        print(f"Error in leaderboard route: {e}")
+        logger.error(f"Error in leaderboard route: {e}")
         flash('Error loading leaderboard. Please try again.', 'error')
         return redirect(url_for('index'))
 
@@ -418,29 +456,62 @@ def dashboard_data():
             'monthly_stats': monthly_stats
         })
     except Exception as e:
-        print(f"Error in dashboard_data API: {e}")
+        logger.error(f"Error in dashboard_data API: {e}")
         return jsonify({'error': 'Failed to load dashboard data'}), 500
 
 
 @app.route('/health')
 def health_check():
-    """Health check endpoint for Render"""
+    """Enhanced health check endpoint for Render"""
+    health_status = {
+        'status': 'healthy',
+        'database': 'disconnected',
+        'timestamp': datetime.now().isoformat()
+    }
+
     if db is not None:
         try:
             # Test database connection
-            users.count_documents({})
-            return jsonify({'status': 'healthy', 'database': 'connected'})
-        except:
-            return jsonify({'status': 'unhealthy', 'database': 'disconnected'}), 500
+            users.count_documents({}, maxTimeMS=5000)  # 5 second timeout
+            health_status['database'] = 'connected'
+            return jsonify(health_status)
+        except Exception as e:
+            logger.error(f"Database health check failed: {e}")
+            health_status['status'] = 'unhealthy'
+            health_status['error'] = str(e)
+            return jsonify(health_status), 500
     else:
-        return jsonify({'status': 'unhealthy', 'database': 'disconnected'}), 500
+        health_status['status'] = 'unhealthy'
+        health_status['error'] = 'Database not initialized'
+        return jsonify(health_status), 500
+
+
+@app.route('/reconnect')
+def reconnect_db():
+    """Manual database reconnection endpoint"""
+    global db_available
+    logger.info("Manual database reconnection requested")
+    db_available = init_db()
+
+    if db_available:
+        return jsonify({'status': 'success', 'message': 'Database reconnected successfully'})
+    else:
+        return jsonify({'status': 'error', 'message': 'Database reconnection failed'}), 500
 
 
 @app.errorhandler(500)
 def internal_server_error(error):
+    logger.error(f"Internal server error: {error}")
     return render_template('error.html', message='Internal server error'), 500
 
 
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('error.html', message='Page not found'), 404
+
+
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Render gives you PORT
-    app.run(host="0.0.0.0", port=port, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    # Disable debug in production
+    debug_mode = os.environ.get("FLASK_ENV") == "development"
+    app.run(host="0.0.0.0", port=port, debug=debug_mode)
