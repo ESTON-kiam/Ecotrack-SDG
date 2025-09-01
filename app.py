@@ -12,19 +12,16 @@ app = Flask(__name__)
 app.secret_key = '861612ceadae2312be7a77fabead3a0d2b7a418cfc5c6a77ece99ec84fde1dbc'
 
 
-# MongoDB Configuration - Method 1: Using SSL Context (Recommended)
+# MongoDB Configuration - Fixed Version
 def get_mongo_client():
     try:
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-
-        MONGO_URI = os.getenv('MONGO_URI',
-                              'mongodb+srv://engestonbrandonkiama_db_user:wYF2ngEfsfoXxDyY@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority')
+        MONGO_URI = os.getenv(
+            'MONGO_URI',
+            'mongodb+srv://engestonbrandonkiama_db_user:7UzegmTeg3Eod3w6@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority'
+        )
 
         client = MongoClient(
             MONGO_URI,
-            ssl_context=ssl_context,
             serverSelectionTimeoutMS=30000,
             connectTimeoutMS=30000,
             socketTimeoutMS=30000
@@ -40,7 +37,7 @@ def get_mongo_client():
         return None
 
 
-# Initialize MongoDB
+# Initialize MongoDB - THIS WAS MISSING!
 client = get_mongo_client()
 if client:
     db = client.ecotrack
@@ -85,7 +82,7 @@ def db_required(f):
 
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not db:
+        if db is None:
             flash('Database connection unavailable. Please try again later.', 'error')
             return render_template('error.html', message='Database connection unavailable'), 500
         return f(*args, **kwargs)
@@ -106,7 +103,7 @@ def login_required(f):
 
 def get_user_badges(user_id):
     """Calculate which badges a user has earned"""
-    if not users or not actions:
+    if users is None or actions is None:
         return []
 
     try:
@@ -136,7 +133,7 @@ def get_user_badges(user_id):
 @app.route('/')
 def index():
     # Check if database is available
-    if not db:
+    if db is None:
         return render_template('index.html',
                                total_users=0,
                                total_actions=0,
@@ -369,7 +366,7 @@ def dashboard_data():
 @app.route('/health')
 def health_check():
     """Health check endpoint for Render"""
-    if db:
+    if db is not None:
         try:
             # Test database connection
             users.count_documents({})
