@@ -11,7 +11,7 @@ app = Flask(__name__)
 app.secret_key = '861612ceadae2312be7a77fabead3a0d2b7a418cfc5c6a77ece99ec84fde1dbc'
 
 # MongoDB Configuration
-MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb+srv://engestonbrandonkiama_db_user:wYF2ngEfsfoXxDyY@cluster0.sxdpjue.mongodb.net/')
 client = MongoClient(MONGO_URI)
 db = client.ecotrack
 users = db.users
