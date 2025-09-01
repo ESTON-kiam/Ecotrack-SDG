@@ -12,12 +12,69 @@ app = Flask(__name__)
 app.secret_key = '861612ceadae2312be7a77fabead3a0d2b7a418cfc5c6a77ece99ec84fde1dbc'
 
 
-# MongoDB Configuration - Fixed Version
+# MongoDB Configuration - Multiple SSL fix methods
 def get_mongo_client():
+    """Try multiple connection methods in order of preference"""
+    import certifi
+
+    print("Attempting to connect to MongoDB...")
+
+    # Method 1: Try with certifi (most secure)
     try:
+        print("Trying Method 1: Using certifi certificates...")
         MONGO_URI = os.getenv(
             'MONGO_URI',
             'mongodb+srv://engestonbrandonkiama_db_user:7UzegmTeg3Eod3w6@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority'
+        )
+
+        client = MongoClient(
+            MONGO_URI,
+            tlsCAFile=certifi.where(),  # Use certifi certificates
+            serverSelectionTimeoutMS=30000,
+            connectTimeoutMS=30000,
+            socketTimeoutMS=30000
+        )
+
+        # Test connection
+        client.admin.command('ping')
+        print("Connected to MongoDB successfully with certifi!")
+        return client
+
+    except Exception as e:
+        print(f"Method 1 failed: {e}")
+
+    # Method 2: Try with SSL verification disabled (development)
+    try:
+        print("Trying Method 2: Disabling SSL verification...")
+        MONGO_URI = os.getenv(
+            'MONGO_URI',
+            'mongodb+srv://engestonbrandonkiama_db_user:7UzegmTeg3Eod3w6@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority'
+        )
+
+        client = MongoClient(
+            MONGO_URI,
+            tls=True,
+            tlsAllowInvalidCertificates=True,
+            tlsAllowInvalidHostnames=True,
+            serverSelectionTimeoutMS=30000,
+            connectTimeoutMS=30000,
+            socketTimeoutMS=30000
+        )
+
+        # Test connection
+        client.admin.command('ping')
+        print("Connected to MongoDB successfully (SSL verification disabled)!")
+        return client
+
+    except Exception as e:
+        print(f"Method 2 failed: {e}")
+
+    # Method 3: Try alternative URI format
+    try:
+        print("Trying Method 3: Alternative URI format...")
+        MONGO_URI = os.getenv(
+            'MONGO_URI',
+            'mongodb+srv://engestonbrandonkiama_db_user:7UzegmTeg3Eod3w6@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE'
         )
 
         client = MongoClient(
@@ -29,12 +86,14 @@ def get_mongo_client():
 
         # Test connection
         client.admin.command('ping')
-        print("Connected to MongoDB successfully!")
+        print("Connected to MongoDB successfully with alternative URI!")
         return client
 
     except Exception as e:
-        print(f"MongoDB connection failed: {e}")
-        return None
+        print(f"Method 3 failed: {e}")
+
+    print("All MongoDB connection methods failed!")
+    return None
 
 
 # Initialize MongoDB - THIS WAS MISSING!
