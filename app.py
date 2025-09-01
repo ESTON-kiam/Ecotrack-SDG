@@ -8,7 +8,7 @@ from functools import wraps
 
 app = Flask(__name__)
 
-app.secret_key = 'your-secret-key-change-in-production'
+app.secret_key = '861612ceadae2312be7a77fabead3a0d2b7a418cfc5c6a77ece99ec84fde1dbc'
 
 # MongoDB Configuration
 MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
