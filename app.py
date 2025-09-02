@@ -26,7 +26,7 @@ app.secret_key = os.getenv('SECRET_KEY', '861612ceadae2312be7a77fabead3a0d2b7a41
 
 
 def get_mongo_client():
-    """MongoDB connection with relaxed TLS validation for Render deployment"""
+    """MongoDB connection with multiple fallback strategies"""
 
     logger.info("Attempting to connect to MongoDB...")
 
@@ -39,28 +39,164 @@ def get_mongo_client():
     MONGO_URI = MONGO_URI.strip()
     logger.info(f"Using MongoDB URI: {MONGO_URI[:50]}...")
 
+    # Check if we're running on Render by looking for environment indicators
+    is_render = any(key in os.environ for key in ['RENDER', 'RENDER_SERVICE_ID', 'RENDER_EXTERNAL_HOSTNAME'])
+    if is_render:
+        logger.info("Detected Render deployment environment")
+
+    # Strategy 1: Render-optimized connection (for production)
+    if is_render:
+        try:
+            logger.info("Trying Strategy 1: Render-optimized connection")
+            # Use a connection string optimized for Render's infrastructure
+            render_uri = MONGO_URI.replace('retryWrites=true&w=majority',
+                                           'retryWrites=true&w=majority&ssl=true&tlsAllowInvalidCertificates=true&tlsAllowInvalidHostnames=true')
+
+            client = MongoClient(
+                render_uri,
+                serverSelectionTimeoutMS=45000,  # Extended for Render
+                connectTimeoutMS=45000,
+                socketTimeoutMS=45000,
+                maxPoolSize=3,  # Conservative pool size for Render
+                retryWrites=True,
+                maxIdleTimeMS=45000,
+                heartbeatFrequencyMS=30000,
+                # Render-specific SSL settings
+                tls=True,
+                tlsAllowInvalidCertificates=True,
+                tlsAllowInvalidHostnames=True
+            )
+            client.admin.command('ping')
+            logger.info("✅ Strategy 1 (Render-optimized) successful!")
+            return client
+        except Exception as e:
+            logger.warning(f"Render-optimized strategy failed: {e}")
+
+    # Strategy 2: Try with standard TLS configuration
     try:
+        logger.info("Trying Strategy 2: Standard TLS configuration")
         client = MongoClient(
             MONGO_URI,
             tls=True,
             tlsCAFile=certifi.where(),
-            tlsAllowInvalidCertificates=True,  # Relax TLS validation (for testing)
-            tlsAllowInvalidHostnames=True,     # Relax hostname validation (for testing)
-            serverSelectionTimeoutMS=10000,
-            connectTimeoutMS=10000,
-            socketTimeoutMS=10000,
-            maxPoolSize=3,
+            serverSelectionTimeoutMS=30000,  # Increased timeout
+            connectTimeoutMS=30000,
+            socketTimeoutMS=30000,
+            maxPoolSize=10,
+            retryWrites=True,
+            maxIdleTimeMS=30000,
+            heartbeatFrequencyMS=10000
+        )
+        client.admin.command('ping')
+        logger.info("✅ Strategy 2 successful - Connected to MongoDB!")
+        return client
+    except Exception as e:
+        logger.warning(f"Strategy 2 failed: {e}")
+
+    # Strategy 3: Try with SSL context configuration
+    try:
+        logger.info("Trying Strategy 3: Custom SSL context")
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+        client = MongoClient(
+            MONGO_URI,
+            tls=True,
+            ssl_context=ssl_context,
+            serverSelectionTimeoutMS=30000,
+            connectTimeoutMS=30000,
+            socketTimeoutMS=30000,
+            maxPoolSize=10,
             retryWrites=True
         )
         client.admin.command('ping')
-        logger.info("✅ Connected to MongoDB successfully!")
+        logger.info("✅ Strategy 3 successful - Connected to MongoDB!")
         return client
     except Exception as e:
-        logger.error(f"MongoDB connection failed: {e}")
+        logger.warning(f"Strategy 3 failed: {e}")
 
-    logger.error("🚫 MongoDB connection failed with all methods.")
+    # Strategy 4: Try with SSL disabled (for local testing only)
+    try:
+        logger.info("Trying Strategy 4: SSL disabled configuration")
+
+        # Parse the URI and modify it to use standard MongoDB connection
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(MONGO_URI)
+
+        # Create a connection string without SSL requirements
+        if 'mongodb+srv' in MONGO_URI:
+            # For SRV connections, try with minimal SSL
+            client = MongoClient(
+                MONGO_URI,
+                tls=True,
+                tlsAllowInvalidCertificates=True,
+                tlsAllowInvalidHostnames=True,
+                tlsInsecure=True,
+                serverSelectionTimeoutMS=30000,
+                connectTimeoutMS=30000,
+                socketTimeoutMS=30000,
+                maxPoolSize=5,
+                retryWrites=True
+            )
+        else:
+            client = MongoClient(MONGO_URI, ssl=False)
+
+        client.admin.command('ping')
+        logger.info("✅ Strategy 4 successful - Connected to MongoDB!")
+        return client
+    except Exception as e:
+        logger.warning(f"Strategy 4 failed: {e}")
+
+    # Strategy 5: Try with alternative SSL settings
+    try:
+        logger.info("Trying Strategy 5: Alternative SSL settings")
+
+        client = MongoClient(
+            MONGO_URI,
+            ssl=True,
+            ssl_cert_reqs=ssl.CERT_NONE,
+            ssl_ca_certs=certifi.where(),
+            serverSelectionTimeoutMS=30000,
+            connectTimeoutMS=30000,
+            socketTimeoutMS=30000,
+            maxPoolSize=5,
+            retryWrites=True,
+            authSource='admin'
+        )
+        client.admin.command('ping')
+        logger.info("✅ Strategy 5 successful - Connected to MongoDB!")
+        return client
+    except Exception as e:
+        logger.warning(f"Strategy 5 failed: {e}")
+
+    # Strategy 6: Try with Python SSL settings
+    try:
+        logger.info("Trying Strategy 6: Python SSL library settings")
+
+        # Set SSL options globally
+        ssl._create_default_https_context = ssl._create_unverified_context
+
+        client = MongoClient(
+            MONGO_URI,
+            serverSelectionTimeoutMS=30000,
+            connectTimeoutMS=30000,
+            socketTimeoutMS=30000,
+            maxPoolSize=5,
+            retryWrites=True
+        )
+        client.admin.command('ping')
+        logger.info("✅ Strategy 6 successful - Connected to MongoDB!")
+        return client
+    except Exception as e:
+        logger.warning(f"Strategy 6 failed: {e}")
+
+    logger.error("🚫 All MongoDB connection strategies failed.")
+    logger.error(f"- Python version: {sys.version}")
     logger.error(f"- Python SSL version: {ssl.OPENSSL_VERSION}")
     logger.error(f"- Certifi CA bundle: {certifi.where()}")
+    logger.error("- Consider checking MongoDB Atlas network access settings")
+    logger.error("- Verify that your IP address is whitelisted in MongoDB Atlas")
 
     return None
 
@@ -84,8 +220,30 @@ def init_db():
         return False
 
 
+# Add a connection retry mechanism
+def ensure_db_connection():
+    """Ensure database connection is active, reconnect if necessary"""
+    global db_available, client, db, users, actions
+
+    if not db_available or client is None:
+        logger.info("Attempting database reconnection...")
+        db_available = init_db()
+        return db_available
+
+    try:
+        # Test the connection
+        client.admin.command('ping')
+        return True
+    except Exception as e:
+        logger.warning(f"Database connection test failed: {e}")
+        logger.info("Attempting database reconnection...")
+        db_available = init_db()
+        return db_available
+
+
 db_available = init_db()
 
+# Rest of your code remains the same...
 SUSTAINABLE_ACTIONS = {
     'plant_tree': {'name': 'Plant a Tree', 'points': 50, 'category': 'Environmental'},
     'recycle': {'name': 'Recycle Items', 'points': 10, 'category': 'Waste Management'},
@@ -115,11 +273,11 @@ BADGES = {
 def db_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if not db_available or db is None:
-            if not init_db():
-                flash('Database connection unavailable. Please try again later.', 'error')
-                return render_template('error.html', message='Database connection unavailable'), 500
+        if not ensure_db_connection():
+            flash('Database connection unavailable. Please try again later.', 'error')
+            return render_template('error.html', message='Database connection unavailable'), 500
         return f(*args, **kwargs)
+
     return decorated_function
 
 
@@ -130,6 +288,7 @@ def login_required(f):
             flash('Please log in to access this page.', 'error')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
+
     return decorated_function
 
 
@@ -156,8 +315,9 @@ def get_user_badges(user_id):
 
 @app.route('/')
 def index():
-    if not db_available or db is None:
-        return render_template('index.html', total_users=0, total_actions=0, total_points=0, recent_activities=[], db_error=True)
+    if not ensure_db_connection():
+        return render_template('index.html', total_users=0, total_actions=0, total_points=0, recent_activities=[],
+                               db_error=True)
     try:
         total_users = users.count_documents({})
         total_actions = actions.count_documents({})
@@ -167,10 +327,12 @@ def index():
             user = users.find_one({'_id': ObjectId(activity['user_id'])})
             activity['username'] = user['username'] if user else 'Unknown'
             activity['action_name'] = SUSTAINABLE_ACTIONS.get(activity['action_type'], {}).get('name', 'Unknown Action')
-        return render_template('index.html', total_users=total_users, total_actions=total_actions, total_points=total_points, recent_activities=recent_activities)
+        return render_template('index.html', total_users=total_users, total_actions=total_actions,
+                               total_points=total_points, recent_activities=recent_activities)
     except Exception as e:
         logger.error(f"Error in index route: {e}")
-        return render_template('index.html', total_users=0, total_actions=0, total_points=0, recent_activities=[], db_error=True)
+        return render_template('index.html', total_users=0, total_actions=0, total_points=0, recent_activities=[],
+                               db_error=True)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -245,7 +407,8 @@ def dashboard():
         users.update_one({'_id': ObjectId(user_id)}, {'$set': {'total_points': total_points}})
         for action in user_actions:
             action['action_name'] = SUSTAINABLE_ACTIONS.get(action['action_type'], {}).get('name', 'Unknown Action')
-        return render_template('dashboard.html', user=user, user_actions=user_actions, total_points=total_points, total_actions_count=total_actions_count, earned_badges=earned_badges, badges=BADGES)
+        return render_template('dashboard.html', user=user, user_actions=user_actions, total_points=total_points,
+                               total_actions_count=total_actions_count, earned_badges=earned_badges, badges=BADGES)
     except Exception as e:
         logger.error(f"Error in dashboard route: {e}")
         flash('Error loading dashboard. Please try again.', 'error')
@@ -269,7 +432,8 @@ def log_action():
                     'points': SUSTAINABLE_ACTIONS[action_type]['points'],
                     'timestamp': datetime.now()
                 })
-                flash(f'Action logged successfully! You earned {SUSTAINABLE_ACTIONS[action_type]["points"]} points!', 'success')
+                flash(f'Action logged successfully! You earned {SUSTAINABLE_ACTIONS[action_type]["points"]} points!',
+                      'success')
                 return redirect(url_for('dashboard'))
             else:
                 flash('Invalid action type!', 'error')
@@ -324,7 +488,7 @@ def dashboard_data():
 @app.route('/health')
 def health_check():
     health_status = {'status': 'healthy', 'database': 'disconnected', 'timestamp': datetime.now().isoformat()}
-    if db is not None:
+    if ensure_db_connection():
         try:
             users.count_documents({}, maxTimeMS=5000)
             health_status['database'] = 'connected'
