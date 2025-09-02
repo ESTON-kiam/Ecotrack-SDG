@@ -1,3 +1,5 @@
+import sys
+
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import MongoClient
@@ -23,7 +25,6 @@ app.secret_key = os.getenv('SECRET_KEY', '861612ceadae2312be7a77fabead3a0d2b7a41
 
 
 # MongoDB Configuration - Improved connection handling
-# Replace your get_mongo_client() function with this version
 def get_mongo_client():
     """MongoDB connection optimized for both local and Render deployment"""
 
@@ -32,14 +33,24 @@ def get_mongo_client():
     # Get MongoDB URI from environment variables with fallback
     MONGO_URI = os.getenv('MONGO_URI') or os.getenv('DATABASE_URL')
 
-    # Check if running on Render or locally
+    # Better environment detection
     is_render = os.getenv('RENDER') is not None
-    is_local = os.getenv('FLASK_ENV') == 'development'
+    is_local_dev = os.getenv('FLASK_ENV') == 'development'
+    is_production = is_render or (os.getenv('FLASK_ENV') == 'production')
+
+    # Debug environment detection
+    logger.info(f"Environment detection:")
+    logger.info(f"- RENDER env var: {os.getenv('RENDER', 'Not set')}")
+    logger.info(f"- FLASK_ENV: {os.getenv('FLASK_ENV', 'Not set')}")
+    logger.info(f"- is_render: {is_render}")
+    logger.info(f"- is_local_dev: {is_local_dev}")
+    logger.info(f"- is_production: {is_production}")
 
     if not MONGO_URI:
-        if not is_render:  # Only use fallback locally
+        # Use fallback for local development OR when no environment variables are set
+        if not is_production:
             MONGO_URI = 'mongodb+srv://engestonbrandonkiama_db_user:nnMzFjnW7Ync3g9P@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority&appName=Cluster0'
-            logger.info("Using local development MongoDB URI")
+            logger.info("Using fallback MongoDB URI for local development")
         else:
             logger.error("MONGO_URI environment variable not set in production!")
             return None
@@ -51,7 +62,6 @@ def get_mongo_client():
     # Clean the URI
     MONGO_URI = MONGO_URI.strip()
     logger.info(f"Using MongoDB URI: {MONGO_URI[:50]}...")
-    logger.info(f"Environment: {'Render' if is_render else 'Local'}")
 
     # Method 1: Standard connection (usually works)
     try:
@@ -67,7 +77,7 @@ def get_mongo_client():
 
         # Test connection
         client.admin.command('ping')
-        logger.info("✅ Connected to MongoDB successfully with standard connection!")
+        logger.info("Connected to MongoDB successfully with standard connection!")
         return client
 
     except Exception as e:
@@ -89,7 +99,7 @@ def get_mongo_client():
         )
 
         client.admin.command('ping')
-        logger.info("✅ Connected to MongoDB successfully with TLS relaxed validation!")
+        logger.info("Connected to MongoDB successfully with TLS relaxed validation!")
         return client
 
     except Exception as e:
@@ -112,7 +122,7 @@ def get_mongo_client():
         )
 
         client.admin.command('ping')
-        logger.info("✅ Connected to MongoDB successfully with URI TLS parameters!")
+        logger.info("Connected to MongoDB successfully with URI TLS parameters!")
         return client
 
     except Exception as e:
@@ -133,20 +143,14 @@ def get_mongo_client():
         )
 
         client.admin.command('ping')
-        logger.info("✅ Connected to MongoDB successfully with certifi SSL context!")
+        logger.info("Connected to MongoDB successfully with certifi SSL context!")
         return client
 
     except Exception as e:
         logger.error(f"Method 4 failed: {e}")
 
-    logger.error("🚫 All MongoDB connection methods failed!")
+    logger.error("All MongoDB connection methods failed!")
     logger.error("This might be a network, SSL, or MongoDB Atlas configuration issue.")
-
-    # Print debug info
-    logger.error("Debug information:")
-    logger.error(f"- MONGO_URI set: {'Yes' if MONGO_URI else 'No'}")
-    logger.error(f"- Environment: {'Render' if is_render else 'Local'}")
-    logger.error(f"- Python version: {sys.version}")
 
     return None
 
