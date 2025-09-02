@@ -1,5 +1,5 @@
 import sys
-
+import urllib.parse
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import MongoClient
@@ -10,6 +10,7 @@ import ssl
 from functools import wraps
 import logging
 from dotenv import load_dotenv
+import certifi
 
 # Load environment variables from .env file
 load_dotenv()
@@ -22,14 +23,6 @@ app = Flask(__name__)
 
 # Use environment variable for secret key in production
 app.secret_key = os.getenv('SECRET_KEY', '861612ceadae2312be7a77fabead3a0d2b7a418cfc5c6a77ece99ec84fde1dbc')
-
-import ssl
-
-import certifi
-import os
-
-
-
 
 
 def get_mongo_client():
@@ -45,139 +38,29 @@ def get_mongo_client():
         MONGO_URI = 'mongodb+srv://engestonbrandonkiama_db_user:nnMzFjnW7Ync3g9P@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority&appName=Cluster0'
         logger.info("Using fallback MongoDB URI for local development")
 
-    # Clean the URI
     MONGO_URI = MONGO_URI.strip()
     logger.info(f"Using MongoDB URI: {MONGO_URI[:50]}...")
 
-    # Method 1: Standard connection with proper SSL context
     try:
-        logger.info("Trying Method 1: Standard connection with SSL context...")
-
-        # Create proper SSL context
-        ssl_context = ssl.create_default_context(cafile=certifi.where())
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-
         client = MongoClient(
             MONGO_URI,
-            tlsContext=ssl_context,
+            tls=True,
+            tlsCAFile=certifi.where(),
             serverSelectionTimeoutMS=10000,
             connectTimeoutMS=10000,
             socketTimeoutMS=10000,
             maxPoolSize=3,
             retryWrites=True
         )
-
-        # Test connection
         client.admin.command('ping')
-        logger.info("✅ Connected to MongoDB successfully with SSL context!")
+        logger.info("✅ Connected to MongoDB successfully!")
         return client
-
     except Exception as e:
-        logger.error(f"Method 1 failed: {e}")
+        logger.error(f"MongoDB connection failed: {e}")
 
-    # Method 2: TLS with relaxed certificate validation (Render-specific)
-    try:
-        logger.info("Trying Method 2: TLS with relaxed validation...")
-
-        client = MongoClient(
-            MONGO_URI,
-            tls=True,
-            tlsAllowInvalidCertificates=True,
-            tlsAllowInvalidHostnames=True,
-            tlsCAFile=certifi.where(),
-            serverSelectionTimeoutMS=15000,
-            connectTimeoutMS=15000,
-            socketTimeoutMS=15000,
-            maxPoolSize=3,
-            retryWrites=True
-        )
-
-        client.admin.command('ping')
-        logger.info("✅ Connected to MongoDB successfully with TLS relaxed validation!")
-        return client
-
-    except Exception as e:
-        logger.error(f"Method 2 failed: {e}")
-
-    # Method 3: Direct SSL context bypassing hostname verification
-    try:
-        logger.info("Trying Method 3: Direct SSL context bypass...")
-
-        # Create SSL context that bypasses hostname verification
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-
-        client = MongoClient(
-            MONGO_URI,
-            tlsContext=ctx,
-            serverSelectionTimeoutMS=20000,
-            connectTimeoutMS=20000,
-            socketTimeoutMS=20000,
-            maxPoolSize=3,
-            retryWrites=True
-        )
-
-        client.admin.command('ping')
-        logger.info("✅ Connected to MongoDB successfully with SSL context bypass!")
-        return client
-
-    except Exception as e:
-        logger.error(f"Method 3 failed: {e}")
-
-    # Method 4: URI-based TLS parameters
-    try:
-        logger.info("Trying Method 4: URI with TLS parameters...")
-
-        # Add TLS parameters directly to the URI
-        separator = '&' if '?' in MONGO_URI else '?'
-        modified_uri = f"{MONGO_URI}{separator}tls=true&tlsAllowInvalidCertificates=true&tlsAllowInvalidHostnames=true"
-
-        client = MongoClient(
-            modified_uri,
-            serverSelectionTimeoutMS=20000,
-            connectTimeoutMS=20000,
-            socketTimeoutMS=20000,
-            maxPoolSize=3
-        )
-
-        client.admin.command('ping')
-        logger.info("✅ Connected to MongoDB successfully with URI TLS parameters!")
-        return client
-
-    except Exception as e:
-        logger.error(f"Method 4 failed: {e}")
-
-    # Method 5: Last resort - minimal TLS
-    try:
-        logger.info("Trying Method 5: Minimal TLS configuration...")
-
-        client = MongoClient(
-            MONGO_URI,
-            tls=True,
-            serverSelectionTimeoutMS=30000,
-            connectTimeoutMS=30000,
-            socketTimeoutMS=30000,
-            maxPoolSize=1,
-            retryWrites=True
-        )
-
-        client.admin.command('ping')
-        logger.info("✅ Connected to MongoDB successfully with minimal TLS!")
-        return client
-
-    except Exception as e:
-        logger.error(f"Method 5 failed: {e}")
-
-    logger.error("🚫 All MongoDB connection methods failed!")
-    logger.error("This appears to be a TLS/SSL compatibility issue between Render and MongoDB Atlas.")
-
-    # Additional debugging
-    logger.error("Debug information:")
+    logger.error("🚫 MongoDB connection failed with all methods.")
     logger.error(f"- Python SSL version: {ssl.OPENSSL_VERSION}")
     logger.error(f"- Certifi CA bundle: {certifi.where()}")
-    logger.error(f"- TLS protocols available: {ssl.get_protocol_name()}")
 
     return None
 
