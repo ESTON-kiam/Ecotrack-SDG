@@ -26,15 +26,13 @@ app.secret_key = os.getenv('SECRET_KEY', '861612ceadae2312be7a77fabead3a0d2b7a41
 
 
 def get_mongo_client():
-    """MongoDB connection optimized for Render deployment with TLS fixes"""
+    """MongoDB connection with relaxed TLS validation for Render deployment"""
 
     logger.info("Attempting to connect to MongoDB...")
 
-    # Get MongoDB URI from environment variables
     MONGO_URI = os.getenv('MONGO_URI') or os.getenv('DATABASE_URL')
 
     if not MONGO_URI:
-        # Fallback for local development
         MONGO_URI = 'mongodb+srv://engestonbrandonkiama_db_user:nnMzFjnW7Ync3g9P@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority&appName=Cluster0'
         logger.info("Using fallback MongoDB URI for local development")
 
@@ -46,6 +44,8 @@ def get_mongo_client():
             MONGO_URI,
             tls=True,
             tlsCAFile=certifi.where(),
+            tlsAllowInvalidCertificates=True,  # Relax TLS validation (for testing)
+            tlsAllowInvalidHostnames=True,     # Relax hostname validation (for testing)
             serverSelectionTimeoutMS=10000,
             connectTimeoutMS=10000,
             socketTimeoutMS=10000,
@@ -66,7 +66,6 @@ def get_mongo_client():
 
 
 def init_db():
-    """Initialize database connection"""
     global client, db, users, actions
 
     client = get_mongo_client()
@@ -85,10 +84,8 @@ def init_db():
         return False
 
 
-# Initialize database on startup
 db_available = init_db()
 
-# Sustainable Actions with Points
 SUSTAINABLE_ACTIONS = {
     'plant_tree': {'name': 'Plant a Tree', 'points': 50, 'category': 'Environmental'},
     'recycle': {'name': 'Recycle Items', 'points': 10, 'category': 'Waste Management'},
@@ -102,7 +99,6 @@ SUSTAINABLE_ACTIONS = {
     'renewable_energy': {'name': 'Use Renewable Energy', 'points': 40, 'category': 'Energy'}
 }
 
-# Badge System
 BADGES = {
     'eco_starter': {'name': 'Eco Starter', 'requirement': 100, 'description': 'Earned 100 points'},
     'green_warrior': {'name': 'Green Warrior', 'requirement': 500, 'description': 'Earned 500 points'},
@@ -117,17 +113,13 @@ BADGES = {
 
 
 def db_required(f):
-    """Decorator to check if database is available"""
-
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not db_available or db is None:
-            # Try to reconnect
             if not init_db():
                 flash('Database connection unavailable. Please try again later.', 'error')
                 return render_template('error.html', message='Database connection unavailable'), 500
         return f(*args, **kwargs)
-
     return decorated_function
 
 
@@ -138,33 +130,24 @@ def login_required(f):
             flash('Please log in to access this page.', 'error')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
-
     return decorated_function
 
 
 def get_user_badges(user_id):
-    """Calculate which badges a user has earned"""
     if users is None or actions is None:
         return []
-
     try:
-        user = users.find_one({'_id': ObjectId(user_id)})
         user_actions = list(actions.find({'user_id': user_id}))
-
         total_points = sum(action.get('points', 0) for action in user_actions)
         earned_badges = []
-
         for badge_id, badge_info in BADGES.items():
             if 'action_type' in badge_info:
-                # Action-specific badges
                 action_count = sum(1 for action in user_actions if action['action_type'] == badge_info['action_type'])
                 if action_count >= badge_info['requirement']:
                     earned_badges.append(badge_id)
             else:
-                # Point-based badges
                 if total_points >= badge_info['requirement']:
                     earned_badges.append(badge_id)
-
         return earned_badges
     except Exception as e:
         logger.error(f"Error getting user badges: {e}")
@@ -173,41 +156,21 @@ def get_user_badges(user_id):
 
 @app.route('/')
 def index():
-    # Check if database is available
     if not db_available or db is None:
-        return render_template('index.html',
-                               total_users=0,
-                               total_actions=0,
-                               total_points=0,
-                               recent_activities=[],
-                               db_error=True)
-
+        return render_template('index.html', total_users=0, total_actions=0, total_points=0, recent_activities=[], db_error=True)
     try:
-        # Get community statistics
         total_users = users.count_documents({})
         total_actions = actions.count_documents({})
         total_points = sum(action.get('points', 0) for action in actions.find())
-
-        # Recent activities
         recent_activities = list(actions.find().sort('timestamp', -1).limit(5))
         for activity in recent_activities:
             user = users.find_one({'_id': ObjectId(activity['user_id'])})
             activity['username'] = user['username'] if user else 'Unknown'
             activity['action_name'] = SUSTAINABLE_ACTIONS.get(activity['action_type'], {}).get('name', 'Unknown Action')
-
-        return render_template('index.html',
-                               total_users=total_users,
-                               total_actions=total_actions,
-                               total_points=total_points,
-                               recent_activities=recent_activities)
+        return render_template('index.html', total_users=total_users, total_actions=total_actions, total_points=total_points, recent_activities=recent_activities)
     except Exception as e:
         logger.error(f"Error in index route: {e}")
-        return render_template('index.html',
-                               total_users=0,
-                               total_actions=0,
-                               total_points=0,
-                               recent_activities=[],
-                               db_error=True)
+        return render_template('index.html', total_users=0, total_actions=0, total_points=0, recent_activities=[], db_error=True)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -218,32 +181,25 @@ def register():
             username = request.form['username']
             email = request.form['email']
             password = request.form['password']
-
-            # Check if user already exists
             if users.find_one({'email': email}):
                 flash('Email already registered!', 'error')
                 return render_template('register.html')
-
             if users.find_one({'username': username}):
                 flash('Username already taken!', 'error')
                 return render_template('register.html')
-
-            # Create new user
             hashed_password = generate_password_hash(password)
-            user_id = users.insert_one({
+            users.insert_one({
                 'username': username,
                 'email': email,
                 'password': hashed_password,
                 'joined_date': datetime.now(),
                 'total_points': 0
-            }).inserted_id
-
+            })
             flash('Registration successful! Please log in.', 'success')
             return redirect(url_for('login'))
         except Exception as e:
             logger.error(f"Error in register route: {e}")
             flash('Registration failed. Please try again.', 'error')
-
     return render_template('register.html')
 
 
@@ -254,9 +210,7 @@ def login():
         try:
             email = request.form['email']
             password = request.form['password']
-
             user = users.find_one({'email': email})
-
             if user and check_password_hash(user['password'], password):
                 session['user_id'] = str(user['_id'])
                 session['username'] = user['username']
@@ -267,7 +221,6 @@ def login():
         except Exception as e:
             logger.error(f"Error in login route: {e}")
             flash('Login failed. Please try again.', 'error')
-
     return render_template('login.html')
 
 
@@ -286,28 +239,13 @@ def dashboard():
         user_id = session['user_id']
         user = users.find_one({'_id': ObjectId(user_id)})
         user_actions = list(actions.find({'user_id': user_id}).sort('timestamp', -1))
-
-        # Calculate user statistics
         total_points = sum(action.get('points', 0) for action in user_actions)
         total_actions_count = len(user_actions)
-
-        # Get user badges
         earned_badges = get_user_badges(user_id)
-
-        # Update user's total points in database
         users.update_one({'_id': ObjectId(user_id)}, {'$set': {'total_points': total_points}})
-
-        # Prepare actions for display
         for action in user_actions:
             action['action_name'] = SUSTAINABLE_ACTIONS.get(action['action_type'], {}).get('name', 'Unknown Action')
-
-        return render_template('dashboard.html',
-                               user=user,
-                               user_actions=user_actions,
-                               total_points=total_points,
-                               total_actions_count=total_actions_count,
-                               earned_badges=earned_badges,
-                               badges=BADGES)
+        return render_template('dashboard.html', user=user, user_actions=user_actions, total_points=total_points, total_actions_count=total_actions_count, earned_badges=earned_badges, badges=BADGES)
     except Exception as e:
         logger.error(f"Error in dashboard route: {e}")
         flash('Error loading dashboard. Please try again.', 'error')
@@ -323,26 +261,21 @@ def log_action():
             action_type = request.form['action_type']
             description = request.form['description']
             user_id = session['user_id']
-
             if action_type in SUSTAINABLE_ACTIONS:
-                action_data = {
+                actions.insert_one({
                     'user_id': user_id,
                     'action_type': action_type,
                     'description': description,
                     'points': SUSTAINABLE_ACTIONS[action_type]['points'],
                     'timestamp': datetime.now()
-                }
-
-                actions.insert_one(action_data)
-                flash(f'Action logged successfully! You earned {SUSTAINABLE_ACTIONS[action_type]["points"]} points!',
-                      'success')
+                })
+                flash(f'Action logged successfully! You earned {SUSTAINABLE_ACTIONS[action_type]["points"]} points!', 'success')
                 return redirect(url_for('dashboard'))
             else:
                 flash('Invalid action type!', 'error')
         except Exception as e:
             logger.error(f"Error in log_action route: {e}")
             flash('Error logging action. Please try again.', 'error')
-
     return render_template('log_action.html', sustainable_actions=SUSTAINABLE_ACTIONS)
 
 
@@ -350,20 +283,14 @@ def log_action():
 @db_required
 def leaderboard():
     try:
-        # Get top users by total points
         top_users = list(users.find().sort('total_points', -1).limit(10))
-
-        # Update total points for all users (in case they're outdated)
         for user in top_users:
             user_actions = list(actions.find({'user_id': str(user['_id'])}))
             total_points = sum(action.get('points', 0) for action in user_actions)
             users.update_one({'_id': user['_id']}, {'$set': {'total_points': total_points}})
             user['total_points'] = total_points
             user['badges'] = get_user_badges(str(user['_id']))
-
-        # Sort again after updating points
         top_users.sort(key=lambda x: x['total_points'], reverse=True)
-
         return render_template('leaderboard.html', top_users=top_users, badges=BADGES)
     except Exception as e:
         logger.error(f"Error in leaderboard route: {e}")
@@ -378,27 +305,17 @@ def dashboard_data():
     try:
         user_id = session['user_id']
         user_actions = list(actions.find({'user_id': user_id}))
-
-        # Category statistics
         category_stats = {}
         for action in user_actions:
-            action_type = action['action_type']
-            category = SUSTAINABLE_ACTIONS.get(action_type, {}).get('category', 'Other')
+            category = SUSTAINABLE_ACTIONS.get(action['action_type'], {}).get('category', 'Other')
             category_stats[category] = category_stats.get(category, 0) + 1
-
-        # Monthly activity (last 6 months)
         monthly_stats = {}
         six_months_ago = datetime.now() - timedelta(days=180)
-
         for action in user_actions:
             if action['timestamp'] >= six_months_ago:
                 month_key = action['timestamp'].strftime('%Y-%m')
                 monthly_stats[month_key] = monthly_stats.get(month_key, 0) + 1
-
-        return jsonify({
-            'category_stats': category_stats,
-            'monthly_stats': monthly_stats
-        })
+        return jsonify({'category_stats': category_stats, 'monthly_stats': monthly_stats})
     except Exception as e:
         logger.error(f"Error in dashboard_data API: {e}")
         return jsonify({'error': 'Failed to load dashboard data'}), 500
@@ -406,17 +323,10 @@ def dashboard_data():
 
 @app.route('/health')
 def health_check():
-    """Enhanced health check endpoint for Render"""
-    health_status = {
-        'status': 'healthy',
-        'database': 'disconnected',
-        'timestamp': datetime.now().isoformat()
-    }
-
+    health_status = {'status': 'healthy', 'database': 'disconnected', 'timestamp': datetime.now().isoformat()}
     if db is not None:
         try:
-            # Test database connection
-            users.count_documents({}, maxTimeMS=5000)  # 5 second timeout
+            users.count_documents({}, maxTimeMS=5000)
             health_status['database'] = 'connected'
             return jsonify(health_status)
         except Exception as e:
@@ -432,11 +342,9 @@ def health_check():
 
 @app.route('/reconnect')
 def reconnect_db():
-    """Manual database reconnection endpoint"""
     global db_available
     logger.info("Manual database reconnection requested")
     db_available = init_db()
-
     if db_available:
         return jsonify({'status': 'success', 'message': 'Database reconnected successfully'})
     else:
@@ -456,6 +364,5 @@ def not_found_error(error):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    # Disable debug in production
     debug_mode = os.environ.get("FLASK_ENV") == "development"
     app.run(host="0.0.0.0", port=port, debug=debug_mode)
