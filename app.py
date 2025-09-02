@@ -33,7 +33,7 @@ def get_mongo_client():
 
     # Fallback for local development (remove this in production)
     if not MONGO_URI:
-        MONGO_URI = 'mongodb+srv://engestonbrandonkiama_db_user:7UzegmTeg3Eod3w6@cluster0.sxdpjue.mongodb.net/ecotrack?retryWrites=true&w=majority'
+        MONGO_URI = 'mongodb+srv://engestonbrandonkiama_db_user:nnMzFjnW7Ync3g9P@cluster0.sxdpjue.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0'
         logger.warning("Using fallback MongoDB URI - set MONGO_URI environment variable for production!")
 
     if not MONGO_URI:
